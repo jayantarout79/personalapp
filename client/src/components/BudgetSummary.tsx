@@ -4,18 +4,35 @@ import { formatCurrency } from "../utils";
 type BudgetSummaryProps = {
   budgets: BudgetStatus[];
   onSave: (category: string, limit: number) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   categories: string[];
   saving?: boolean;
 };
 
-export function BudgetSummary({ budgets, onSave, categories, saving }: BudgetSummaryProps) {
+export function BudgetSummary({ budgets, onSave, onDelete, categories, saving }: BudgetSummaryProps) {
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [limit, setLimit] = useState<string>("");
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const category = String(formData.get("category") || "");
-    const limit = Number(formData.get("limit") || 0);
-    await onSave(category, limit);
-    event.currentTarget.reset();
+    const limitValue = Number(limit || 0);
+    await onSave(selectedCategory, limitValue);
+    setSelectedCategory("");
+    setLimit("");
+  };
+
+  const handleEdit = (budget: BudgetStatus) => {
+    setSelectedCategory(budget.category);
+    setLimit(String(budget.monthlyLimit));
+  };
+
+  const handleDelete = async (budget: BudgetStatus) => {
+    if (!budget.id) return;
+    await onDelete(budget.id);
+    if (selectedCategory === budget.category) {
+      setSelectedCategory("");
+      setLimit("");
+    }
   };
 
   return (
@@ -26,16 +43,43 @@ export function BudgetSummary({ budgets, onSave, categories, saving }: BudgetSum
           <h3>Monthly limits by category</h3>
         </div>
         <form className="budget-form" onSubmit={handleSubmit}>
-          <select name="category" required>
+          <select
+            name="category"
+            required
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
             <option value="">Select category</option>
             {categories.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
-          <input name="limit" type="number" step="0.01" min="0" placeholder="Limit" required />
+          <input
+            name="limit"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Limit"
+            required
+            value={limit}
+            onChange={(e) => setLimit(e.target.value)}
+          />
           <button className="primary-button" type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save limit"}
+            {saving ? "Saving..." : selectedCategory ? "Update limit" : "Save limit"}
           </button>
+          {selectedCategory && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => {
+                setSelectedCategory("");
+                setLimit("");
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          )}
         </form>
       </div>
       <div className="budget-grid">
@@ -45,9 +89,26 @@ export function BudgetSummary({ budgets, onSave, categories, saving }: BudgetSum
             <div className={`budget-bar ${danger ? "danger" : ""}`} key={budget.id || budget.category}>
               <div className="budget-bar__header">
                 <span className="budget-bar__title">{budget.category}</span>
-                <span className="budget-bar__meta">
-                  {formatCurrency(budget.remaining, "USD")} left / {formatCurrency(budget.monthlyLimit, "USD")}
-                </span>
+                <div className="budget-actions">
+                  <span className="budget-bar__meta">
+                    {formatCurrency(budget.remaining, "USD")} left / {formatCurrency(budget.monthlyLimit, "USD")}
+                  </span>
+                  <div className="budget-action-buttons">
+                    <button type="button" onClick={() => handleEdit(budget)} disabled={saving}>
+                      Edit
+                    </button>
+                    {budget.id && (
+                      <button
+                        type="button"
+                        className="text-danger"
+                        onClick={() => handleDelete(budget)}
+                        disabled={saving}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="budget-bar__track">
                 <div className="budget-bar__fill" style={{ width: `${budget.percentUsed}%` }} />

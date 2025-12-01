@@ -133,6 +133,17 @@ export const api = {
     return parseResponse(response);
   },
 
+  async deleteBudget(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/api/budgets/${id}`, {
+      method: "DELETE",
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || "Request failed");
+    }
+  },
+
   async getDocuments(params?: { months?: string; upcoming?: boolean }): Promise<Document[]> {
     const search = new URLSearchParams();
     if (params?.months) search.set("months", params.months);

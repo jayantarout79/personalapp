@@ -161,6 +161,15 @@ const upsertBudget = async (category, monthlyLimit) => {
   return mapBudgetRow(data);
 };
 
+const deleteBudget = async (id) => {
+  if (!supabase) {
+    throw new Error("Supabase is not configured. Unable to delete budget.");
+  }
+  const { error } = await supabase.from(config.supabase.budgetTableName).delete().eq("id", id);
+  if (error) throw error;
+  return { success: true };
+};
+
 const listDocuments = async () => {
   if (!supabase) {
     throw new Error("Supabase is not configured. Unable to fetch documents.");
@@ -312,6 +321,7 @@ module.exports = {
   deleteTransaction,
   listBudgets,
   upsertBudget,
+  deleteBudget,
   listDocuments,
   createDocument,
   updateDocument,

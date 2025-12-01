@@ -21,7 +21,7 @@ const {
   getTransactionsWithFilters,
   computeInsights,
 } = require("./transactionsService");
-const { getBudgetStatuses, saveBudget } = require("./budgetsService");
+const { getBudgetStatuses, saveBudget, removeBudget } = require("./budgetsService");
 const { getDocuments, saveDocument, editDocument, removeDocument } = require("./documentsService");
 const {
   getPolicies,
@@ -194,6 +194,15 @@ app.post("/api/budgets", async (req, res, next) => {
   try {
     const record = await saveBudget(req.body.category, req.body.monthlyLimit);
     res.status(201).json({ data: record });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.delete("/api/budgets/:id", async (req, res, next) => {
+  try {
+    await removeBudget(req.params.id);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

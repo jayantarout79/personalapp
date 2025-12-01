@@ -1,5 +1,5 @@
 const dayjs = require("dayjs");
-const { listBudgets, upsertBudget, listTransactions } = require("./supabaseClient");
+const { listBudgets, upsertBudget, deleteBudget, listTransactions } = require("./supabaseClient");
 
 const computeSpentByCategory = (transactions = []) => {
   const startOfMonth = dayjs().startOf("month");
@@ -53,4 +53,5 @@ const saveBudget = async (category, monthlyLimit) => {
 module.exports = {
   getBudgetStatuses,
   saveBudget,
+  removeBudget: deleteBudget,
 };

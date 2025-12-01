@@ -354,6 +354,20 @@ function App() {
     }
   };
 
+  const handleDeleteBudget = async (id: string) => {
+    setBudgetSaving(true);
+    try {
+      await api.deleteBudget(id);
+      await loadBudgets();
+      showToast("Budget deleted", "success");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not delete budget.";
+      showToast(message, "error");
+    } finally {
+      setBudgetSaving(false);
+    }
+  };
+
   const handleSaveDocuments = async (docs: Document[]) => {
     setDocSubmitting(true);
     try {
@@ -486,6 +500,7 @@ function App() {
           budgets={budgets}
           categories={meta.categories}
           onSave={handleSaveBudget}
+          onDelete={handleDeleteBudget}
           saving={budgetSaving}
         />
       </section>
