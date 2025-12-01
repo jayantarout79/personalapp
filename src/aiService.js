@@ -6,24 +6,6 @@ const client = config.openai.apiKey
   ? new OpenAI({ apiKey: config.openai.apiKey })
   : null;
 
-let pdfParseModule = null;
-const getPdfParser = () => {
-  if (pdfParseModule) return pdfParseModule;
-  try {
-    // Lazy-load to avoid crashing in environments without canvas/DOM polyfills.
-    // pdf-parse v2 pulls in PDF.js which expects DOM APIs; Vercel runtime lacks them.
-    // When unavailable, we surface a clear error instead of failing at cold start.
-    // eslint-disable-next-line global-require
-    pdfParseModule = require("pdf-parse");
-    return pdfParseModule;
-  } catch (err) {
-    const error = new Error("PDF parsing is not available in this environment.");
-    error.cause = err;
-    error.status = 503;
-    throw error;
-  }
-};
-
 const extractJson = (text) => {
   if (!text) return {};
   try {
@@ -290,79 +272,11 @@ const extractPolicyFromImage = async (buffer, filename = "policy.jpg") => {
   return normalized;
 };
 
-const parsePdfText = async (buffer) => {
-  const parserModule = getPdfParser();
-  // pdf-parse v1 exported a function; v2+ exports a PDFParse class under PDFParse
-  if (typeof parserModule === "function") {
-    const parsed = await parserModule(buffer).catch(() => ({ text: "" }));
-    return parsed.text || "";
-  }
-
-  const PdfClass = parserModule?.PDFParse || parserModule?.default?.PDFParse;
-  if (PdfClass) {
-    const parser = new PdfClass({ data: buffer });
-    try {
-      const parsed = await parser.getText();
-      return parsed?.text || "";
-    } finally {
-      await parser.destroy().catch(() => {});
-    }
-  }
-
-  throw new Error("Unable to read PDF text content.");
-};
-
-const extractPolicyFromPdf = async (buffer, filename = "policy.pdf") => {
-  if (!client) {
-    throw new Error("OpenAI is not configured. Unable to extract data from PDF.");
-  }
-
-  let text;
-  try {
-    text = (await parsePdfText(buffer)).trim();
-  } catch (err) {
-    if (err && err.status === 503) {
-      const friendly = new Error("PDF extraction is disabled in this deployment.");
-      friendly.status = 503;
-      throw friendly;
-    }
-    throw err;
-  }
-  if (!text) {
-    throw new Error("Unable to read PDF text content.");
-  }
-  const trimmedText = text.slice(0, 6000);
-
-  const response = await client.chat.completions.create({
-    model: config.openai.model,
-    temperature: 0.2,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You extract insurance policy details and premium due dates from PDF documents. Respond with JSON only.",
-      },
-      {
-        role: "user",
-        content:
-          "From the following PDF text, extract every policy. Respond with a JSON array. Fields: policyName, provider, policyType (life/health/auto/home/other), policyNumber, premiumAmount (number), currency (ISO code, default USD), paymentFrequency (Monthly/Quarterly/Yearly/One-time), nextPaymentDate (YYYY-MM-DD), startDate, endDate, notes (coverage or riders). Leave fields blank instead of guessing.",
-      },
-      { role: "user", content: trimmedText },
-    ],
-  });
-
-  const content = response.choices?.[0]?.message?.content || "";
-  const parsedJson = extractJson(content);
-  const normalized = normalizePolicyList(parsedJson);
-  if (normalized.length === 0) {
-    throw new Error("AI could not read any policies from the PDF.");
-  }
-  return normalized;
-};
-
 const extractPolicyFromFile = async (buffer, mimetype = "application/octet-stream", filename) => {
-  if (mimetype && mimetype.includes("pdf")) {
-    return extractPolicyFromPdf(buffer, filename);
+  if (mimetype && mimetype.toLowerCase().includes("pdf")) {
+    const error = new Error("PDF policy extraction is disabled on this deployment.");
+    error.status = 503;
+    throw error;
   }
   return extractPolicyFromImage(buffer, filename);
 };
