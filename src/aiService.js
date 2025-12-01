@@ -1,11 +1,28 @@
 const dayjs = require("dayjs");
 const OpenAI = require("openai");
-const pdfParseModule = require("pdf-parse");
 const config = require("./config");
 
 const client = config.openai.apiKey
   ? new OpenAI({ apiKey: config.openai.apiKey })
   : null;
+
+let pdfParseModule = null;
+const getPdfParser = () => {
+  if (pdfParseModule) return pdfParseModule;
+  try {
+    // Lazy-load to avoid crashing in environments without canvas/DOM polyfills.
+    // pdf-parse v2 pulls in PDF.js which expects DOM APIs; Vercel runtime lacks them.
+    // When unavailable, we surface a clear error instead of failing at cold start.
+    // eslint-disable-next-line global-require
+    pdfParseModule = require("pdf-parse");
+    return pdfParseModule;
+  } catch (err) {
+    const error = new Error("PDF parsing is not available in this environment.");
+    error.cause = err;
+    error.status = 503;
+    throw error;
+  }
+};
 
 const extractJson = (text) => {
   if (!text) return {};
@@ -274,13 +291,14 @@ const extractPolicyFromImage = async (buffer, filename = "policy.jpg") => {
 };
 
 const parsePdfText = async (buffer) => {
+  const parserModule = getPdfParser();
   // pdf-parse v1 exported a function; v2+ exports a PDFParse class under PDFParse
-  if (typeof pdfParseModule === "function") {
-    const parsed = await pdfParseModule(buffer).catch(() => ({ text: "" }));
+  if (typeof parserModule === "function") {
+    const parsed = await parserModule(buffer).catch(() => ({ text: "" }));
     return parsed.text || "";
   }
 
-  const PdfClass = pdfParseModule?.PDFParse || pdfParseModule?.default?.PDFParse;
+  const PdfClass = parserModule?.PDFParse || parserModule?.default?.PDFParse;
   if (PdfClass) {
     const parser = new PdfClass({ data: buffer });
     try {
@@ -299,7 +317,17 @@ const extractPolicyFromPdf = async (buffer, filename = "policy.pdf") => {
     throw new Error("OpenAI is not configured. Unable to extract data from PDF.");
   }
 
-  const text = (await parsePdfText(buffer)).trim();
+  let text;
+  try {
+    text = (await parsePdfText(buffer)).trim();
+  } catch (err) {
+    if (err && err.status === 503) {
+      const friendly = new Error("PDF extraction is disabled in this deployment.");
+      friendly.status = 503;
+      throw friendly;
+    }
+    throw err;
+  }
   if (!text) {
     throw new Error("Unable to read PDF text content.");
   }
