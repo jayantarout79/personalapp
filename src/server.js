@@ -33,6 +33,7 @@ const {
 const { scheduleDocumentEmails } = require("./scheduler");
 
 const app = express();
+const isVercel = Boolean(process.env.VERCEL);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
@@ -301,8 +302,19 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(config.port, () => {
-  console.log(`My Smart Desk backend running on http://localhost:${config.port}`);
-});
+const startServer = () => {
+  app.listen(config.port, () => {
+    console.log(`My Smart Desk backend running on http://localhost:${config.port}`);
+  });
 
-scheduleDocumentEmails();
+  // Avoid scheduling inside serverless environments like Vercel lambdas.
+  if (!isVercel) {
+    scheduleDocumentEmails();
+  }
+};
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
