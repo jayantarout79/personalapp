@@ -4,6 +4,7 @@
   "description": "My Smart Desk - Personal help web application starting with a Finance Tracker.",
   "main": "src/server.js",
   "scripts": {
+    "postinstall": "npm install --prefix client",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "nodemon src/server.js",
     "dev:client": "npm run dev --prefix client",
