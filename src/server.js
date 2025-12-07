@@ -30,7 +30,7 @@ const {
   editPolicy,
   removePolicy,
 } = require("./policiesService");
-const { scheduleDocumentEmails } = require("./scheduler");
+const { scheduleDocumentEmails, scheduleExpenseEmails } = require("./scheduler");
 
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);
@@ -151,7 +151,7 @@ app.post("/api/ai/documents", upload.single("file"), async (req, res, next) => {
 app.post("/api/ai/policies", upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file) {
-      const error = new Error("Image or PDF file is required");
+      const error = new Error("Image file is required");
       error.status = 400;
       throw error;
     }
@@ -319,6 +319,7 @@ const startServer = () => {
   // Avoid scheduling inside serverless environments like Vercel lambdas.
   if (!isVercel) {
     scheduleDocumentEmails();
+    scheduleExpenseEmails();
   }
 };
 

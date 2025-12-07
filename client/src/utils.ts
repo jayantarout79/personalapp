@@ -5,10 +5,17 @@ export const formatCurrency = (value: number, currency = "USD") =>
     maximumFractionDigits: 2,
   }).format(value || 0);
 
+export const parseLocalDate = (value?: string) => {
+  if (!value) return null;
+  const parts = value.split("-").map((n) => Number(n));
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  const [year, month, day] = parts;
+  return new Date(year, month - 1, day);
+};
+
 export const formatDate = (value?: string) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  const date = parseLocalDate(value);
+  if (!date) return value || "-";
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",

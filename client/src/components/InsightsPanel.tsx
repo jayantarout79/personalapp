@@ -1,8 +1,11 @@
+import { useState } from "react";
 import {
+  Bar,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
   Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -11,17 +14,72 @@ import {
   YAxis,
 } from "recharts";
 import type { PieLabelRenderProps } from "recharts";
-import type { InsightSummary } from "../types";
-import { formatCurrency } from "../utils";
+import type { InsightSummary, Transaction } from "../types";
+import { formatCurrency, parseLocalDate } from "../utils";
 
 const chartColors = ["#0EA5E9", "#22C55E", "#F59E0B", "#F97316", "#64748B"];
 
 type InsightsProps = {
   insights: InsightSummary | null;
+  transactions: Transaction[];
+  categories: string[];
   loading?: boolean;
 };
 
-export function InsightsPanel({ insights, loading }: InsightsProps) {
+type RangeKey = "month" | "60" | "90" | "180";
+
+const rangeOptions: { label: string; value: RangeKey }[] = [
+  { label: "Current month", value: "month" },
+  { label: "Last 60 days", value: "60" },
+  { label: "Last 90 days", value: "90" },
+  { label: "Last 180 days", value: "180" },
+];
+
+const buildFiltered = (transactions: Transaction[], range: RangeKey, category: string) => {
+  const now = new Date();
+  const start =
+    range === "month"
+      ? new Date(now.getFullYear(), now.getMonth(), 1)
+      : new Date(now.getTime() - Number(range) * 24 * 60 * 60 * 1000);
+
+  const filtered = transactions.filter((tx) => {
+    const date = parseLocalDate(tx.date);
+    if (!date) return false;
+    if (date < start || date > now) return false;
+    if (category && tx.category !== category) return false;
+    return true;
+  });
+
+  const totalsByDate: Record<string, number> = {};
+  filtered.forEach((tx) => {
+    totalsByDate[tx.date] = (totalsByDate[tx.date] || 0) + (Number(tx.amount) || 0);
+  });
+
+  const datesSorted = Object.keys(totalsByDate).sort();
+  let running = 0;
+  const timeSeries = datesSorted.map((date) => {
+    running += totalsByDate[date];
+    return { date, amount: totalsByDate[date], cumulative: running };
+  });
+
+  const categoryTotals: Record<string, number> = {};
+  filtered.forEach((tx) => {
+    categoryTotals[tx.category || "Other"] =
+      (categoryTotals[tx.category || "Other"] || 0) + (Number(tx.amount) || 0);
+  });
+  const categoryBreakdown = Object.entries(categoryTotals).map(([cat, amount]) => ({
+    category: cat,
+    amount,
+  }));
+
+  return { filtered, timeSeries, categoryBreakdown };
+};
+
+export function InsightsPanel({ insights, transactions, categories, loading }: InsightsProps) {
+  const [range, setRange] = useState<RangeKey>("month");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+
+  const { timeSeries, categoryBreakdown } = buildFiltered(transactions, range, categoryFilter);
   const hasData = insights && insights.trend.length > 0;
   const renderCategoryLabel = ({ value, payload }: PieLabelRenderProps) => {
     const data = payload as { category?: string; name?: string; amount?: number };
@@ -31,23 +89,29 @@ export function InsightsPanel({ insights, loading }: InsightsProps) {
     return label ? `${label} ${formatCurrency(amount)}` : formatCurrency(amount);
   };
 
-  const cumulativeTrend =
-    insights?.trend?.reduce<{ date: string; amount: number; cumulative: number }[]>(
-      (acc, item) => {
-        const last = acc[acc.length - 1];
-        const cumulative = (last?.cumulative || 0) + (item.amount || 0);
-        acc.push({ ...item, cumulative });
-        return acc;
-      },
-      []
-    ) || [];
-
   return (
     <div className="card">
       <div className="card-header">
         <div>
           <p className="eyebrow">Insights</p>
           <h3>Expense overview</h3>
+        </div>
+        <div className="chart-filters">
+          <select value={range} onChange={(e) => setRange(e.target.value as RangeKey)}>
+            {rangeOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="">All categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -80,37 +144,25 @@ export function InsightsPanel({ insights, loading }: InsightsProps) {
           <div className="charts">
             <div className="chart">
               <div className="chart-header">
-                <h4>Spend over time (cumulative)</h4>
+                <h4>Spend over time</h4>
               </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={cumulativeTrend}>
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={timeSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                  <Bar dataKey="amount" name="Daily spend" fill="#0EA5E9" />
                   <Line
                     type="monotone"
                     dataKey="cumulative"
-                    stroke="#0EA5E9"
+                    name="Cumulative"
+                    stroke="#F97316"
                     strokeWidth={3}
-                    dot={false}
+                    dot={{ r: 4 }}
                   />
-                  {cumulativeTrend.length > 0 && (
-                    <Line
-                      type="monotone"
-                      dataKey="cumulative"
-                      stroke="transparent"
-                      dot={{
-                        r: 6,
-                        fill: "#0EA5E9",
-                        stroke: "#fff",
-                        strokeWidth: 2,
-                      }}
-                      activeDot={false}
-                      legendType="none"
-                    />
-                  )}
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
             <div className="chart">
@@ -122,13 +174,13 @@ export function InsightsPanel({ insights, loading }: InsightsProps) {
                   <Pie
                     dataKey="amount"
                     nameKey="category"
-                    data={insights.categoryBreakdown}
+                    data={categoryBreakdown}
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
                     label={renderCategoryLabel}
                   >
-                    {insights.categoryBreakdown.map((_, index) => (
+                    {categoryBreakdown.map((_, index) => (
                       <Cell
                         key={index}
                         fill={chartColors[index % chartColors.length]}

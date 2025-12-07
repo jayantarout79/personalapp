@@ -475,6 +475,15 @@ function App() {
   const financeView = (
     <>
       <section className="grid">
+        <InsightsPanel
+          insights={insights}
+          loading={insightsLoading}
+          transactions={transactions}
+          categories={meta.categories}
+        />
+      </section>
+
+      <section className="grid">
         <ImageUpload onUpload={handleUpload} onMessage={showToast} busy={uploadingAI} />
         <TextExpense onSubmit={handleNoteSubmit} loading={noteSaving} />
       </section>
@@ -503,10 +512,6 @@ function App() {
           onDelete={handleDeleteBudget}
           saving={budgetSaving}
         />
-      </section>
-
-      <section className="grid">
-        <InsightsPanel insights={insights} loading={insightsLoading} />
       </section>
 
       <section className="grid">

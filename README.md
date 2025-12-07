@@ -6,7 +6,8 @@ Full-stack Supabase app with Finance, Document, and Policy trackers plus OpenAI-
 - Authenticated Supabase-backed API and React client (email/password sign-in only).
 - Finance tracker with manual entry, AI receipt/text extraction, filters, and insight charts.
 - Document tracker for expiry dates with optional weekly reminder emails.
-- Policy tracker with AI ingestion from images/PDFs and upcoming payment insights.
+- Daily 09:00 expense pulse email for the current month (requires Supabase + SMTP env vars).
+- Policy tracker with AI ingestion from images and upcoming payment insights.
 
 ## Setup
 1) Install dependencies
@@ -105,8 +106,8 @@ create policy "Allow all for authenticated" on public.policies for all using (tr
   npm run build   # builds client
   npm start       # serves dist assets + API via Express
   ```
-  The weekly document reminder runs every Monday at 09:00 server time when both Supabase and SMTP env vars are set; it is skipped otherwise.
+  The weekly document reminder runs every Monday at 09:00 server time and the current-month expense pulse runs daily at 09:00 when both Supabase and SMTP env vars are set; they are skipped otherwise.
 
 ## Notes
-- OpenAI features require a valid `OPENAI_API_KEY`; image/PDF extraction is disabled when the key is missing.
+- OpenAI features require a valid `OPENAI_API_KEY`; image extraction is disabled when the key is missing.
 - API endpoints expect a Supabase access token in `Authorization: Bearer <token>`; the client uses Supabase Auth directly.

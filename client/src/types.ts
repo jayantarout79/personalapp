@@ -34,6 +34,11 @@ export const categories = [
   "Travel",
   "Shopping",
   "Utilities",
+  "Education",
+  "Entertainment",
+  "Insurance",
+  "Business",
+  "Savings",
   "Other",
 ];
 

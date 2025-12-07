@@ -13,6 +13,11 @@ const allowedCategories = [
   "Travel",
   "Shopping",
   "Utilities",
+  "Education",
+  "Entertainment",
+  "Insurance",
+  "Business",
+  "Savings",
   "Other",
 ];
 

@@ -59,14 +59,14 @@ export function PolicyUpload({ onCreated, onMessage }: PolicyUploadProps) {
       <div className="card-header">
         <div>
           <p className="eyebrow">Policy upload</p>
-          <h3>Upload PDF/image → AI draft</h3>
+          <h3>Upload image → AI draft</h3>
         </div>
       </div>
       <div className="upload-zone">
         <label className="upload-button">
           <input
             type="file"
-            accept="image/*,application/pdf,.pdf"
+            accept="image/*"
             hidden
             multiple
             disabled={uploading}
@@ -75,7 +75,7 @@ export function PolicyUpload({ onCreated, onMessage }: PolicyUploadProps) {
           {uploading ? "Reading..." : "Upload file(s)"}
         </label>
         <div className="upload-copy">
-          <p>Drop insurance PDFs or photos. AI will capture renewal and premium details.</p>
+          <p>Drop clear insurance photos. AI will capture renewal and premium details.</p>
           {fileName && <small className="hint">Last file: {fileName}</small>}
         </div>
       </div>

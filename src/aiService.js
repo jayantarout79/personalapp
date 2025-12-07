@@ -39,6 +39,19 @@ const normalizeTransaction = (raw) => ({
   source: "Image AI",
 });
 
+const selectReceiptTotal = (transactions) => {
+  if (transactions.length <= 1) return transactions;
+  let winner = transactions[0];
+  let winnerIndex = 0;
+  transactions.forEach((tx, idx) => {
+    if (tx.amount > winner.amount || (tx.amount === winner.amount && idx > winnerIndex)) {
+      winner = tx;
+      winnerIndex = idx;
+    }
+  });
+  return [winner];
+};
+
 const normalizeTransactionList = (raw) => {
   const listSource = Array.isArray(raw)
     ? raw
@@ -46,9 +59,11 @@ const normalizeTransactionList = (raw) => {
       ? raw.transactions
       : [raw];
 
-  return listSource
+  const cleaned = listSource
     .map(normalizeTransaction)
     .filter((item) => item.amount > 0 && (item.description || item.category));
+
+  return selectReceiptTotal(cleaned);
 };
 
 const normalizeDocument = (raw) => ({
@@ -121,7 +136,7 @@ const extractTransactionFromImage = async (buffer, filename = "receipt.jpg") => 
       {
         role: "system",
         content:
-          "You are a finance assistant that extracts a single expense transaction from a receipt or payment screenshot. Respond with compact JSON only.",
+          "You are a finance assistant that extracts one expense transaction total from a receipt or payment screenshot. Respond with compact JSON only.",
       },
       {
         role: "user",
@@ -129,7 +144,7 @@ const extractTransactionFromImage = async (buffer, filename = "receipt.jpg") => 
           {
             type: "text",
             text:
-              "Read this receipt or SMS screenshot and extract every expense transaction you see. Respond with a JSON array (always an array, even for a single item). For each transaction return: date (YYYY-MM-DD from the screenshot; do NOT invent a future date), amount (positive number, use decimals), currency (ISO 4217, default USD), category (Food, Rent, Grocery, Travel, Shopping, Utilities, Other), paymentMethod (Cash, Credit Card, Debit Card, UPI, Other), description (merchant + a few words). Split separate notifications/lines into separate array items. Ignore balances or totals. Never output zero or negative amounts. JSON array only.",
+              "Read this receipt or payment screenshot and return exactly ONE expense transaction that represents the grand/amount due total (including taxes/fees). Always respond with a JSON array containing a single object. Extract: date (YYYY-MM-DD from the receipt/SMS; if missing use today's date), amount (positive number), currency (ISO 4217 from the symbol, default USD), category (Food, Rent, Grocery, Travel, Shopping, Utilities, Other), paymentMethod (Cash, Credit Card, Debit Card, UPI, Other), description (merchant + a few words). Ignore individual line items, subtotals, balances, or intermediary calculations. If multiple totals exist, choose the final/last payable total. Never output zero or negative amounts. JSON array only.",
           },
           {
             type: "image_url",
@@ -274,8 +289,8 @@ const extractPolicyFromImage = async (buffer, filename = "policy.jpg") => {
 
 const extractPolicyFromFile = async (buffer, mimetype = "application/octet-stream", filename) => {
   if (mimetype && mimetype.toLowerCase().includes("pdf")) {
-    const error = new Error("PDF policy extraction is disabled on this deployment.");
-    error.status = 503;
+    const error = new Error("PDF uploads are disabled. Please upload an image instead.");
+    error.status = 400;
     throw error;
   }
   return extractPolicyFromImage(buffer, filename);
